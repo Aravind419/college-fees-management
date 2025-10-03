@@ -9,7 +9,8 @@ export interface User {
   createdAt: string
 }
 
-export type FeeType = "tuition" | "books" | "exam" | "bus"
+// Allow arbitrary fee keys, including admin-defined custom types
+export type FeeType = string
 
 export interface FeeDefinition {
   id: string
@@ -17,6 +18,8 @@ export interface FeeDefinition {
   name: string
   active: boolean
   defaultAmount: number
+  // marker to distinguish added types if needed
+  isCustom?: boolean
 }
 
 export interface Student {
@@ -52,8 +55,12 @@ export interface Student {
     mark12?: string
   }
 
+  // Allow arbitrary custom certificates (name + data)
+  customCertificates?: Array<{ id: string; name: string; dataUrl?: string }>
+
   profileCompleted?: boolean
   auditTrail?: Array<{ at: string; by: string; action: string }>
+  photoDataUrl?: string
 }
 
 export interface FeeAllocation {
@@ -76,6 +83,8 @@ export interface PaymentSubmission {
   createdAt: string
   decidedAt?: string
   decidedBy?: string
+  // Mandatory reason stored when rejected
+  rejectReason?: string
 }
 
 export interface Receipt {
@@ -94,4 +103,8 @@ export interface Db {
   receipts: Receipt[]
   currentUserId?: string
   setupComplete?: boolean
+  registrationOpen?: boolean
+  registrationWindow?: { from?: string; to?: string }
+  frozenDepartments?: string[]
+  frozenStudents?: string[]
 }

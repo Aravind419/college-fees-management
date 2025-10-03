@@ -45,7 +45,10 @@ function AdminTiles() {
       <Tile title="Configure Fees" desc="Activate types and set amounts" href="/fees/configure" />
       <Tile title="Allocate Fees" desc="Assign fees to students" href="/fees/allocate" />
       <Tile title="Approvals" desc="Review payment submissions" href="/admin/approvals" />
-      <Tile title="Reports (stub)" desc="Collections and outstanding" href="#" />
+      <Tile title="Reports" desc="Collections and outstanding" href="/admin/reports" />
+      <Tile title="Users" desc="Create staff accounts" href="/admin/users" />
+      <Tile title="Settings" desc="Registration & freeze rules" href="/admin/settings" />
+      <Tile title="Students" desc="Lists & filters" href="/admin/students" />
     </div>
   )
 }

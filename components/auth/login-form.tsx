@@ -10,15 +10,19 @@ import type { Role } from "@/lib/types"
 
 export default function LoginForm() {
   const db = useDb()
-  const [email, setEmail] = useState("")
+  const [emailOrId, setEmailOrId] = useState("") // unified identifier
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<Role>("student")
 
   return (
     <div className="grid gap-4">
       <div className="grid gap-2">
-        <Label>Email</Label>
-        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Label>{role === "student" ? "Register No / Phone" : "Email"}</Label>
+        <Input
+          type={role === "student" ? "text" : "email"}
+          value={emailOrId}
+          onChange={(e) => setEmailOrId(e.target.value)}
+        />
       </div>
       <div className="grid gap-2">
         <Label>Password</Label>
@@ -42,13 +46,30 @@ export default function LoginForm() {
       </div>
       <Button
         onClick={() => {
-          const user = db.users.find((u) => u.email === email && u.role === role && u.passwordHash === hash(password))
+          let user: ReturnType<typeof useDb>["users"][number] | undefined
+
+          if (role === "student") {
+            const byReg = db.users.find(
+              (u) => u.role === "student" && u.studentRegNo === emailOrId && u.passwordHash === hash(password),
+            )
+            const s = db.students.find((st) => (st.phone && st.phone === emailOrId) || st.registerNo === emailOrId)
+            const byPhone =
+              s &&
+              db.users.find(
+                (u) => u.role === "student" && u.studentRegNo === s.registerNo && u.passwordHash === hash(password),
+              )
+            user = byReg || byPhone
+          } else {
+            // staff: email + password + role
+            user = db.users.find((u) => u.email === emailOrId && u.role === role && u.passwordHash === hash(password))
+          }
+
           if (!user) {
             alert("Invalid credentials or role")
             return
           }
           patchDb((db) => {
-            db.currentUserId = user.id
+            db.currentUserId = user!.id
           })
           setCurrentUser(user.id)
           window.location.href = "/dashboard"

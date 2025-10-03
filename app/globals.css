@@ -44,6 +44,14 @@
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
+
+  /* add missing base tokens used across UI components */
+  --card: oklch(0.99 0 0);
+  --card-foreground: oklch(0.18 0 0);
+  --popover: oklch(0.99 0 0);
+  --popover-foreground: oklch(0.18 0 0);
+  --destructive: oklch(0.62 0.22 29);
+  --destructive-foreground: oklch(0.99 0 0);
 }
 
 .dark {
@@ -79,6 +87,14 @@
   --sidebar-accent-foreground: var(--accent-foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
+
+  /* add dark variants for missing tokens */
+  --card: oklch(0.22 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.22 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.55 0.22 29);
+  --destructive-foreground: oklch(0.1 0 0);
 }
 
 @theme inline {

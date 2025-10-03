@@ -19,6 +19,10 @@ function emptyDb(): Db {
     payments: [],
     receipts: [],
     setupComplete: false,
+    registrationOpen: true,
+    registrationWindow: undefined,
+    frozenDepartments: [],
+    frozenStudents: [],
   }
 }
 

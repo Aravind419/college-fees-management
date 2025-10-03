@@ -7,117 +7,148 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function AllocateFeesPage() {
   const db = useDb()
-  const [reg, setReg] = useState<string>("")
+
+  const [department, setDepartment] = useState<string>("all")
+  const [selectedRegs, setSelectedRegs] = useState<string[]>([])
   const [feeId, setFeeId] = useState<string>("")
   const [amount, setAmount] = useState<string>("")
+  const [allFees, setAllFees] = useState<boolean>(false)
 
-  const selectedStudent = db.students.find((s) => s.registerNo === reg)
-  const allocations = db.allocations.filter((a) => a.studentRegisterNo === reg)
+  const students = useMemo(
+    () => db.students.filter((s) => (department !== "all" ? s.department === department : true)),
+    [db.students, department],
+  )
+  const departments = useMemo(
+    () => Array.from(new Set(db.students.map((s) => s.department))).filter(Boolean),
+    [db.students],
+  )
+
+  const activeFees = db.fees.filter((f) => f.active)
+
+  const toggleReg = (reg: string) => {
+    setSelectedRegs((prev) => (prev.includes(reg) ? prev.filter((x) => x !== reg) : [...prev, reg]))
+  }
 
   return (
     <main className="min-h-screen">
       <Navbar />
-      <section className="mx-auto max-w-5xl p-6">
+      <section className="mx-auto max-w-6xl p-6">
         <Card>
           <CardHeader>
             <CardTitle>Allocate Fees</CardTitle>
-            <CardDescription>Assign fees to students by Register Number.</CardDescription>
+            <CardDescription>Assign fees to one or more students with filters.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2 md:grid-cols-3">
+          <CardContent className="grid gap-6">
+            <div className="grid gap-2 md:grid-cols-4">
               <div className="grid gap-2">
-                <Label>Register Number</Label>
-                <Select value={reg} onValueChange={setReg}>
+                <Label>Department</Label>
+                <Select value={department} onValueChange={setDepartment}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select student" />
+                    <SelectValue placeholder="All departments" />
                   </SelectTrigger>
                   <SelectContent>
-                    {db.students.map((s) => (
-                      <SelectItem key={s.id} value={s.registerNo}>
-                        {s.registerNo} - {s.name}
+                    <SelectItem value="all">All</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              <div className="grid gap-2 md:col-span-2">
+                <Label>Students</Label>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-auto rounded border p-2">
+                  {students.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedRegs.includes(s.registerNo)}
+                        onCheckedChange={() => toggleReg(s.registerNo)}
+                      />
+                      <span className="text-sm">
+                        {s.registerNo} - {s.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div className="grid gap-2">
-                <Label>Fee Type</Label>
-                <Select value={feeId} onValueChange={setFeeId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select fee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {db.fees
-                      .filter((f) => f.active)
-                      .map((f) => (
+                <Label>Apply to all active fees</Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={allFees} onCheckedChange={(v) => setAllFees(Boolean(v))} />
+                  <span className="text-sm">All active fees</span>
+                </div>
+              </div>
+            </div>
+
+            {!allFees && (
+              <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label>Fee Type</Label>
+                  <Select value={feeId} onValueChange={setFeeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select fee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeFees.map((f) => (
                         <SelectItem key={f.id} value={f.id}>
                           {f.name}
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Amount (optional)</Label>
+                  <Input
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Leave blank to use default"
+                  />
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label>Amount</Label>
-                <Input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="Override or leave 0"
-                />
-              </div>
-            </div>
+            )}
+
             <div>
               <Button
                 onClick={() => {
-                  if (!reg || !feeId) return
-                  const fee = db.fees.find((f) => f.id === feeId)!
-                  const amt = Number(amount || 0) || fee.defaultAmount
+                  if (selectedRegs.length === 0) return
                   patchDb((db) => {
-                    db.allocations.push({
-                      id: uid("alloc"),
-                      studentRegisterNo: reg,
-                      feeId,
-                      amount: amt,
-                    })
+                    for (const reg of selectedRegs) {
+                      if (allFees) {
+                        for (const f of activeFees) {
+                          db.allocations.push({
+                            id: uid("alloc"),
+                            studentRegisterNo: reg,
+                            feeId: f.id,
+                            amount: f.defaultAmount,
+                          })
+                        }
+                      } else {
+                        if (!feeId) continue
+                        const f = db.fees.find((x) => x.id === feeId)!
+                        const amt = Number(amount || "") || f.defaultAmount
+                        db.allocations.push({
+                          id: uid("alloc"),
+                          studentRegisterNo: reg,
+                          feeId: feeId,
+                          amount: amt,
+                        })
+                      }
+                    }
                   })
+                  alert("Allocations saved.")
                 }}
               >
-                Add Allocation
+                Add Allocation(s)
               </Button>
             </div>
-            {selectedStudent && (
-              <div className="mt-4">
-                <h3 className="mb-2 text-lg font-semibold">
-                  Allocations for {selectedStudent.name} ({selectedStudent.registerNo})
-                </h3>
-                <ul className="grid gap-2">
-                  {allocations.map((a) => {
-                    const f = db.fees.find((x) => x.id === a.feeId)
-                    return (
-                      <li key={a.id} className="flex items-center justify-between rounded border p-2">
-                        <span>{f?.name}</span>
-                        <span>₹ {a.amount.toFixed(2)}</span>
-                        <Button
-                          variant="secondary"
-                          onClick={() =>
-                            patchDb((db) => {
-                              db.allocations = db.allocations.filter((x) => x.id !== a.id)
-                            })
-                          }
-                        >
-                          Remove
-                        </Button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )}
           </CardContent>
         </Card>
       </section>
