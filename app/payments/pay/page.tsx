@@ -11,6 +11,7 @@ import { useMemo, useState } from "react"
 import { outstandingByFee } from "@/lib/fees"
 import { sumAllocatedByFee, sumPaidByFee } from "@/lib/fees"
 import { Checkbox } from "@/components/ui/checkbox"
+import QR from "@/components/payments/qr"
 
 function fileToDataUrl(file?: File): Promise<string | undefined> {
   if (!file) return Promise.resolve(undefined)
@@ -67,7 +68,7 @@ export default function PayPage() {
   const tn = student?.registerNo ? `Fees ${student.registerNo}` : "Fees"
   const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     "PMC TECH",
-  )}&am=${total.toFixed(2)}&tn=${encodeURIComponent(tn)}`
+  )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`
 
   if (!student) {
     return (
@@ -173,11 +174,7 @@ export default function PayPage() {
             </a>
 
             <div className="mt-2 flex flex-col items-center">
-              <img
-                src="/images/qrcode.jpg"
-                alt="Scan to pay via UPI"
-                className="h-48 w-48 rounded border object-contain"
-              />
+              <QR text={upiLink} />
               <p className="mt-2 text-xs text-muted-foreground">
                 Scan this QR or tap "Open UPI App" to pay. Then submit proof for approval.
               </p>

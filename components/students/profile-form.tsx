@@ -19,6 +19,14 @@ function fileToDataUrl(file?: File): Promise<string | undefined> {
   })
 }
 
+function downloadDataUrl(filename: string, dataUrl?: string) {
+  if (!dataUrl) return
+  const a = document.createElement("a")
+  a.href = dataUrl
+  a.download = filename
+  a.click()
+}
+
 export default function ProfileForm({ section = "details" }: { section?: Section }) {
   const db = useDb()
   const user = currentUser()
@@ -266,6 +274,122 @@ export default function ProfileForm({ section = "details" }: { section?: Section
                   </div>
                 </div>
               )}
+
+              {/* Default named certificates preview + download */}
+              <div className="grid gap-2">
+                <div className="text-sm font-medium">Certificates Preview & Download</div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded border p-2 text-sm">
+                    <div className="font-medium">12th TC Certificate</div>
+                    {student.docs?.tc12 ? (
+                      <>
+                        <img
+                          src={
+                            student.docs.tc12 || "/placeholder.svg?height=120&width=200&query=12th%20TC%20Certificate"
+                          }
+                          alt="12th TC Certificate"
+                          className="mt-2 h-32 w-full rounded border object-contain"
+                        />
+                        <Button
+                          className="mt-2"
+                          variant="secondary"
+                          onClick={() => downloadDataUrl("12th-TC-Certificate.png", student.docs?.tc12)}
+                        >
+                          Download
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-2">No file uploaded</div>
+                    )}
+                  </div>
+                  <div className="rounded border p-2 text-sm">
+                    <div className="font-medium">Birth Certificate</div>
+                    {student.docs?.birth ? (
+                      <>
+                        <img
+                          src={student.docs.birth || "/placeholder.svg?height=120&width=200&query=Birth%20Certificate"}
+                          alt="Birth Certificate"
+                          className="mt-2 h-32 w-full rounded border object-contain"
+                        />
+                        <Button
+                          className="mt-2"
+                          variant="secondary"
+                          onClick={() => downloadDataUrl("Birth-Certificate.png", student.docs?.birth)}
+                        >
+                          Download
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-2">No file uploaded</div>
+                    )}
+                  </div>
+                  <div className="rounded border p-2 text-sm">
+                    <div className="font-medium">1st Graduate</div>
+                    {student.docs?.firstGraduate ? (
+                      <>
+                        <img
+                          src={
+                            student.docs.firstGraduate || "/placeholder.svg?height=120&width=200&query=First%20Graduate"
+                          }
+                          alt="1st Graduate"
+                          className="mt-2 h-32 w-full rounded border object-contain"
+                        />
+                        <Button
+                          className="mt-2"
+                          variant="secondary"
+                          onClick={() => downloadDataUrl("First-Graduate.png", student.docs?.firstGraduate)}
+                        >
+                          Download
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-2">No file uploaded</div>
+                    )}
+                  </div>
+                  <div className="rounded border p-2 text-sm">
+                    <div className="font-medium">10th Marksheet</div>
+                    {student.docs?.mark10 ? (
+                      <>
+                        <img
+                          src={student.docs.mark10 || "/placeholder.svg?height=120&width=200&query=10th%20Marksheet"}
+                          alt="10th Marksheet"
+                          className="mt-2 h-32 w-full rounded border object-contain"
+                        />
+                        <Button
+                          className="mt-2"
+                          variant="secondary"
+                          onClick={() => downloadDataUrl("10th-Marksheet.png", student.docs?.mark10)}
+                        >
+                          Download
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-2">No file uploaded</div>
+                    )}
+                  </div>
+                  <div className="rounded border p-2 text-sm">
+                    <div className="font-medium">12th Marksheet</div>
+                    {student.docs?.mark12 ? (
+                      <>
+                        <img
+                          src={student.docs.mark12 || "/placeholder.svg?height=120&width=200&query=12th%20Marksheet"}
+                          alt="12th Marksheet"
+                          className="mt-2 h-32 w-full rounded border object-contain"
+                        />
+                        <Button
+                          className="mt-2"
+                          variant="secondary"
+                          onClick={() => downloadDataUrl("12th-Marksheet.png", student.docs?.mark12)}
+                        >
+                          Download
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-2">No file uploaded</div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}

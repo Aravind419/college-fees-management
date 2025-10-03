@@ -83,7 +83,7 @@ function HODTiles() {
 function FacultyTiles() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Tile title="Students (stub)" desc="View advisees" href="#" />
+      <Tile title="Students" desc="View & filter all students" href="/faculty/students" />
     </div>
   )
 }
@@ -128,12 +128,15 @@ export default function DashboardPage() {
     )
   }
 
+  const student = user.studentRegNo ? db.students.find((s) => s.registerNo === user.studentRegNo) : undefined
+  const nameOrEmail = student?.name || user.email
+
   return (
     <main className="min-h-screen">
       <Navbar />
       <section className="mx-auto max-w-6xl p-6">
         <div className="mb-4">
-          <h1 className="text-2xl font-semibold text-pretty">Welcome, {user.email}</h1>
+          <h1 className="text-2xl font-semibold text-pretty">Welcome, {nameOrEmail}</h1>
           <p className="text-muted-foreground">Role: {user.role.toUpperCase()}</p>
         </div>
         {byRole(user.role)}

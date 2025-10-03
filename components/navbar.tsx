@@ -7,26 +7,33 @@ import { Button } from "@/components/ui/button"
 export default function Navbar() {
   const db = useDb()
   const user = currentUser()
+  const student = user?.studentRegNo ? db.students.find((s) => s.registerNo === user.studentRegNo) : undefined
+  const displayName = student?.name || user?.email
 
   return (
     <header className="w-full border-b bg-background">
       <div className="mx-auto flex max-w-6xl items-center justify-between p-4">
         <Link href="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded bg-primary" aria-hidden />
+          {/* Hide logo square on mobile */}
+          <div className="h-8 w-8 rounded bg-primary hidden sm:block" aria-hidden />
           <span className="text-lg font-semibold text-pretty">PMC TECH Fees</span>
         </Link>
 
-        <nav className="flex items-center gap-3">
+        {/* Allow wrapping on small screens */}
+        <nav className="flex flex-wrap items-center gap-2">
           {user ? (
             <>
               <span className="text-sm">
-                Signed in as: {user.email} ({user.role})
+                Signed in as: {displayName} ({user.role})
               </span>
               <Link href="/dashboard">
-                <Button variant="default">Dashboard</Button>
+                <Button variant="default" size="sm">
+                  Dashboard
+                </Button>
               </Link>
               <Button
                 variant="secondary"
+                size="sm"
                 onClick={() => {
                   logout()
                   window.location.href = "/"
@@ -38,10 +45,12 @@ export default function Navbar() {
           ) : (
             <>
               <Link href="/login">
-                <Button>Login</Button>
+                <Button size="sm">Login</Button>
               </Link>
               <Link href="/register">
-                <Button variant="secondary">Student Sign Up</Button>
+                <Button variant="secondary" size="sm">
+                  Student Sign Up
+                </Button>
               </Link>
             </>
           )}

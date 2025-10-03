@@ -57,26 +57,6 @@ export default function ApprovalsPage() {
                             x.decidedAt = new Date().toISOString()
                             x.decidedBy = "admin"
 
-                            for (const line of x.allocations) {
-                              let remaining = line.amount
-                              for (const a of db.allocations.filter(
-                                (a) => a.studentRegisterNo === x.studentRegisterNo && a.feeId === line.feeId,
-                              )) {
-                                if (remaining <= 0) break
-                                const take = Math.min(a.amount, remaining)
-                                a.amount -= take
-                                remaining -= take
-                              }
-                              db.allocations = db.allocations.filter(
-                                (a) =>
-                                  !(
-                                    a.studentRegisterNo === x.studentRegisterNo &&
-                                    a.feeId === line.feeId &&
-                                    a.amount <= 0
-                                  ),
-                              )
-                            }
-
                             const receiptId = uid("rcpt")
                             db.receipts.push({
                               id: receiptId,

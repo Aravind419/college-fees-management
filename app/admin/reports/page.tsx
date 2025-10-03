@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMemo, useState } from "react"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis, Legend, Cell } from "recharts"
+import * as XLSX from "xlsx"
 
 type Range = "daily" | "weekly" | "monthly" | "yearly" | "custom"
 
@@ -82,6 +83,13 @@ export default function ReportsPage() {
     a.download = "fees-report.csv"
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  function downloadExcel() {
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Report")
+    XLSX.writeFile(wb, "fees-report.xlsx")
   }
 
   const BAR_COLORS = ["#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6"]
@@ -178,9 +186,12 @@ export default function ReportsPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button onClick={() => window.print()}>Print Report (PDF)</Button>
+              <Button onClick={() => window.print()}>Download PDF</Button>
               <Button variant="secondary" onClick={downloadCSV}>
                 Download CSV
+              </Button>
+              <Button variant="secondary" onClick={downloadExcel}>
+                Download Excel
               </Button>
             </div>
 

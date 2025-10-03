@@ -39,7 +39,7 @@ export default function ReceiptsPage() {
                         Student: {student?.name} ({student?.registerNo})
                       </div>
                     </div>
-                    <Button onClick={() => window.print()}>Print</Button>
+                    <Button onClick={() => window.print()}>Download PDF</Button>
                   </div>
                   <div className="mt-3">
                     <div className="font-medium mb-1">Paid Items</div>

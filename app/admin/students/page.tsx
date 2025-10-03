@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button" // import Button component
+import * as XLSX from "xlsx"
 
 type Comparator = "lt" | "eq" | "gt"
 
@@ -74,6 +75,21 @@ export default function AdminStudentsPage() {
     URL.revokeObjectURL(a.href)
   }
 
+  function downloadStudentsExcel() {
+    const data = rows.map((r) => ({
+      Name: r.name,
+      RegisterNo: r.registerNo,
+      Department: r.department,
+      Phone: r.phone,
+      Paid: r.paid,
+      Outstanding: r.outstanding,
+    }))
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Students")
+    XLSX.writeFile(wb, "students.xlsx")
+  }
+
   return (
     <main className="min-h-screen">
       <Navbar />
@@ -87,6 +103,9 @@ export default function AdminStudentsPage() {
             <div className="flex items-center gap-2">
               <Button variant="secondary" onClick={downloadStudentsCSV}>
                 Download CSV
+              </Button>
+              <Button variant="secondary" onClick={downloadStudentsExcel}>
+                Download Excel
               </Button>
               <Button onClick={() => window.print()}>Print (PDF)</Button>
             </div>
