@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useLocalDb } from "@/lib/local-db"
+import { useLocalDb, hash } from "@/lib/local-db"
 
 const DEPARTMENTS = [
   "IT",
@@ -25,11 +25,13 @@ export default function DepartmentsAdminPage() {
 
   const students = useMemo(() => db.students.filter((s) => s.department === active), [db.students, active])
 
-  function updatePassword(studentId: string, password: string) {
+  function updatePassword(registerNo: string, password: string) {
+    if (!password) return
     patchDb((d) => {
-      const s = d.users.find((u) => u.role === "student" && u.id === studentId)
-      if (s) s.password = password
+      const user = d.users.find((u) => u.role === "student" && u.studentRegNo === registerNo)
+      if (user) user.passwordHash = hash(password)
     })
+    alert(`Password updated for ${registerNo}`)
   }
 
   function downloadNames() {
@@ -85,9 +87,9 @@ export default function DepartmentsAdminPage() {
                 <td className="p-2">
                   <input
                     className="w-40 rounded border px-2 py-1"
-                    type="text"
-                    defaultValue={db.users.find((u) => u.role === "student" && u.id === s.id)?.password || ""}
-                    onBlur={(e) => updatePassword(s.id, e.target.value)}
+                    type="password"
+                    placeholder="Set new password"
+                    onBlur={(e) => updatePassword(s.registerNo, e.target.value)}
                   />
                 </td>
               </tr>

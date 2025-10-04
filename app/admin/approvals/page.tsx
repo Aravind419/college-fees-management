@@ -27,6 +27,36 @@ export default function ApprovalsPage() {
     setRejectOpen(true)
   }
 
+  const filteredSubmitted = submitted.filter((p) => {
+    const t = new Date(p.createdAt).getTime()
+    const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
+    const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
+    return t >= f && t <= to
+  })
+  const filteredApproved = approved.filter((p) => {
+    const t = new Date(p.decidedAt || p.createdAt).getTime()
+    const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
+    const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
+    return t >= f && t <= to
+  })
+  const filteredRejected = rejected.filter((p) => {
+    const t = new Date(p.decidedAt || p.createdAt).getTime()
+    const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
+    const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
+    return t >= f && t <= to
+  })
+
+  function groupByDay<T>(items: T[], getDateIso: (x: T) => string) {
+    const map = new Map<string, T[]>()
+    items.forEach((i) => {
+      const d = new Date(getDateIso(i))
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(i)
+    })
+    return Array.from(map.entries()).sort(([a], [b]) => (a < b ? 1 : -1))
+  }
+
   return (
     <main className="min-h-screen">
       <Navbar />
@@ -56,116 +86,114 @@ export default function ApprovalsPage() {
                 />
               </div>
             </div>
-            {/* Grid layout instead of list for submitted */}
-            {submitted.length === 0 && <p>No pending submissions.</p>}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {submitted
-                .filter((p) => {
-                  const t = new Date(p.createdAt).getTime()
-                  const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
-                  const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
-                  return t >= f && t <= to
-                })
-                .map((p) => {
-                  const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
-                  const dept = student?.department || "-"
-                  const unpaid = student ? totalOutstanding(db, student.registerNo) : 0
-                  return (
-                    <div key={p.id} className="rounded border p-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="font-medium">
-                            {student?.name} ({p.studentRegisterNo})
+            {/* Submitted grouped by date */}
+            {filteredSubmitted.length === 0 && <p>No pending submissions.</p>}
+            {groupByDay(filteredSubmitted, (p) => p.createdAt).map(([day, items]) => (
+              <div key={day}>
+                <h3 className="mt-2 text-sm font-semibold">{day}</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {items.map((p) => {
+                    const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
+                    const dept = student?.department || "-"
+                    const unpaid = student ? totalOutstanding(db, student.registerNo) : 0
+                    return (
+                      <div key={p.id} className="rounded border p-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-medium">
+                              {student?.name} ({p.studentRegisterNo})
+                            </div>
+                            {/* Show department, unpaid and date */}
+                            <div className="text-xs text-muted-foreground">Department: {dept}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Submitted: {new Date(p.createdAt).toLocaleString()}
+                            </div>
+                            <div className="text-sm">Total: ₹ {p.total.toFixed(2)}</div>
+                            <div className="text-xs">Remaining (Unpaid): ₹ {unpaid.toFixed(2)}</div>
+                            {p.upiTransactionId && <div className="text-xs">UPI Txn: {p.upiTransactionId}</div>}
                           </div>
-                          {/* Show department, unpaid and date */}
-                          <div className="text-xs text-muted-foreground">Department: {dept}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Submitted: {new Date(p.createdAt).toLocaleString()}
+                          {/* Per-payment PDF */}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              const w = window.open("", "_blank", "width=720,height=900")
+                              if (!w) return
+                              const linesHtml = p.allocations
+                                .map((line) => {
+                                  const fee = db.fees.find((f) => f.id === line.feeId)
+                                  return `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${fee?.name || line.feeId}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">₹ ${line.amount.toFixed(2)}</td></tr>`
+                                })
+                                .join("")
+                              w.document.write(`
+                                <html>
+                                  <head><title>Payment ${p.id}</title></head>
+                                  <body style="font-family:sans-serif;">
+                                    <h2>Payment Submission</h2>
+                                    <p><strong>Student:</strong> ${student?.name} (${p.studentRegisterNo})</p>
+                                    <p><strong>Department:</strong> ${dept}</p>
+                                    <p><strong>Date:</strong> ${new Date(p.createdAt).toLocaleString()}</p>
+                                    <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+                                      <thead>
+                                        <tr><th style="text-align:left;border:1px solid #ddd;padding:4px 8px;">Fee</th><th style="text-align:right;border:1px solid #ddd;padding:4px 8px;">Amount</th></tr>
+                                      </thead>
+                                      <tbody>${linesHtml}</tbody>
+                                      <tfoot>
+                                        <tr><td style="padding:6px 8px;border:1px solid #ddd;"><strong>Total</strong></td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right;"><strong>₹ ${p.total.toFixed(2)}</strong></td></tr>
+                                      </tfoot>
+                                    </table>
+                                    <p><strong>Remaining (Unpaid):</strong> ₹ ${unpaid.toFixed(2)}</p>
+                                    <script>window.print();</script>
+                                  </body>
+                                </html>
+                              `)
+                              w.document.close()
+                            }}
+                          >
+                            PDF
+                          </Button>
+                        </div>
+                        {p.screenshotDataUrl && (
+                          <div className="mt-2">
+                            <img
+                              src={p.screenshotDataUrl || "/placeholder.svg"}
+                              alt="Payment screenshot"
+                              className="max-h-64 rounded border object-contain"
+                            />
                           </div>
-                          <div className="text-sm">Total: ₹ {p.total.toFixed(2)}</div>
-                          <div className="text-xs">Remaining (Unpaid): ₹ {unpaid.toFixed(2)}</div>
-                          {p.upiTransactionId && <div className="text-xs">UPI Txn: {p.upiTransactionId}</div>}
-                        </div>
-                        {/* Per-payment PDF */}
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            const w = window.open("", "_blank", "width=720,height=900")
-                            if (!w) return
-                            const linesHtml = p.allocations
-                              .map((line) => {
-                                const fee = db.fees.find((f) => f.id === line.feeId)
-                                return `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${fee?.name || line.feeId}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">₹ ${line.amount.toFixed(2)}</td></tr>`
+                        )}
+                        <div className="mt-2 flex items-center gap-2">
+                          <Button
+                            className="bg-primary text-primary-foreground"
+                            onClick={() => {
+                              patchDb((db) => {
+                                const x = db.payments.find((x) => x.id === p.id)!
+                                x.status = "approved"
+                                x.decidedAt = new Date().toISOString()
+                                x.decidedBy = "admin"
+                                const receiptId = uid("rcpt")
+                                db.receipts.push({
+                                  id: receiptId,
+                                  paymentId: p.id,
+                                  number: `PMC-${new Date().getFullYear()}-${String(db.receipts.length + 1).padStart(5, "0")}`,
+                                  issuedAt: new Date().toISOString(),
+                                })
                               })
-                              .join("")
-                            w.document.write(`
-                              <html>
-                                <head><title>Payment ${p.id}</title></head>
-                                <body style="font-family:sans-serif;">
-                                  <h2>Payment Submission</h2>
-                                  <p><strong>Student:</strong> ${student?.name} (${p.studentRegisterNo})</p>
-                                  <p><strong>Department:</strong> ${dept}</p>
-                                  <p><strong>Date:</strong> ${new Date(p.createdAt).toLocaleString()}</p>
-                                  <table style="border-collapse:collapse;width:100%;margin-top:12px;">
-                                    <thead>
-                                      <tr><th style="text-align:left;border:1px solid #ddd;padding:4px 8px;">Fee</th><th style="text-align:right;border:1px solid #ddd;padding:4px 8px;">Amount</th></tr>
-                                    </thead>
-                                    <tbody>${linesHtml}</tbody>
-                                    <tfoot>
-                                      <tr><td style="padding:6px 8px;border:1px solid #ddd;"><strong>Total</strong></td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right;"><strong>₹ ${p.total.toFixed(2)}</strong></td></tr>
-                                    </tfoot>
-                                  </table>
-                                  <p><strong>Remaining (Unpaid):</strong> ₹ ${unpaid.toFixed(2)}</p>
-                                  <script>window.print();</script>
-                                </body>
-                              </html>
-                            `)
-                            w.document.close()
-                          }}
-                        >
-                          PDF
-                        </Button>
-                      </div>
-                      {p.screenshotDataUrl && (
-                        <div className="mt-2">
-                          <img
-                            src={p.screenshotDataUrl || "/placeholder.svg"}
-                            alt="Payment screenshot"
-                            className="max-h-64 rounded border object-contain"
-                          />
+                              alert(`Approved ₹ ${p.total.toFixed(2)} for ${p.studentRegisterNo}`)
+                            }}
+                          >
+                            Approve & Issue Receipt
+                          </Button>
+                          <Button variant="secondary" onClick={() => openReject(p.id)}>
+                            Reject
+                          </Button>
                         </div>
-                      )}
-                      <div className="mt-2 flex items-center gap-2">
-                        <Button
-                          className="bg-primary text-primary-foreground"
-                          onClick={() => {
-                            patchDb((db) => {
-                              const x = db.payments.find((x) => x.id === p.id)!
-                              x.status = "approved"
-                              x.decidedAt = new Date().toISOString()
-                              x.decidedBy = "admin"
-                              const receiptId = uid("rcpt")
-                              db.receipts.push({
-                                id: receiptId,
-                                paymentId: p.id,
-                                number: `PMC-${new Date().getFullYear()}-${String(db.receipts.length + 1).padStart(5, "0")}`,
-                                issuedAt: new Date().toISOString(),
-                              })
-                            })
-                            alert(`Approved ₹ ${p.total.toFixed(2)} for ${p.studentRegisterNo}`)
-                          }}
-                        >
-                          Approve & Issue Receipt
-                        </Button>
-                        <Button variant="secondary" onClick={() => openReject(p.id)}>
-                          Reject
-                        </Button>
                       </div>
-                    </div>
-                  )
-                })}
-            </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
@@ -212,40 +240,41 @@ export default function ApprovalsPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {approved.length === 0 && <p>No approved items.</p>}
-            {approved
-              .filter((p) => {
-                const t = new Date(p.decidedAt || p.createdAt).getTime()
-                const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
-                const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
-                return t >= f && t <= to
-              })
-              .map((p) => {
-                const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
-                const dept = student?.department || "-"
-                const unpaid = student ? totalOutstanding(db, student.registerNo) : 0
-                return (
-                  <div key={p.id} className="rounded border p-3 text-sm">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="font-medium">
-                          {student?.name} ({p.studentRegisterNo})
+          <CardContent className="grid gap-4">
+            {/* Approved grouped by date */}
+            {filteredApproved.length === 0 && <p>No approved items.</p>}
+            {groupByDay(filteredApproved, (p) => p.decidedAt || p.createdAt).map(([day, items]) => (
+              <div key={day}>
+                <h3 className="mt-2 text-sm font-semibold">{day}</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {items.map((p) => {
+                    const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
+                    const dept = student?.department || "-"
+                    const unpaid = student ? totalOutstanding(db, student.registerNo) : 0
+                    return (
+                      <div key={p.id} className="rounded border p-3 text-sm">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-medium">
+                              {student?.name} ({p.studentRegisterNo})
+                            </div>
+                            <div className="text-xs text-muted-foreground">Department: {dept}</div>
+                            <div>Total: ₹ {p.total.toFixed(2)}</div>
+                            <div className="text-xs">Remaining (Unpaid): ₹ {unpaid.toFixed(2)}</div>
+                          </div>
+                          <div className="text-green-600">Approved</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">Department: {dept}</div>
-                        <div>Total: ₹ {p.total.toFixed(2)}</div>
-                        <div className="text-xs">Remaining (Unpaid): ₹ {unpaid.toFixed(2)}</div>
+                        <div className="mt-2">
+                          <Button size="sm" variant="secondary" onClick={() => window.print()}>
+                            Download PDF
+                          </Button>
+                        </div>
                       </div>
-                      <div className="text-green-600">Approved</div>
-                    </div>
-                    <div className="mt-2">
-                      <Button size="sm" variant="secondary" onClick={() => window.print()}>
-                        Download PDF
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
@@ -292,39 +321,40 @@ export default function ApprovalsPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {rejected.length === 0 && <p>No rejected items.</p>}
-            {rejected
-              .filter((p) => {
-                const t = new Date(p.decidedAt || p.createdAt).getTime()
-                const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
-                const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
-                return t >= f && t <= to
-              })
-              .map((p) => {
-                const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
-                const dept = student?.department || "-"
-                return (
-                  <div key={p.id} className="rounded border p-3 text-sm">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="font-medium">
-                          {student?.name} ({p.studentRegisterNo})
+          <CardContent className="grid gap-4">
+            {/* Rejected grouped by date */}
+            {filteredRejected.length === 0 && <p>No rejected items.</p>}
+            {groupByDay(filteredRejected, (p) => p.decidedAt || p.createdAt).map(([day, items]) => (
+              <div key={day}>
+                <h3 className="mt-2 text-sm font-semibold">{day}</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {items.map((p) => {
+                    const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
+                    const dept = student?.department || "-"
+                    return (
+                      <div key={p.id} className="rounded border p-3 text-sm">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-medium">
+                              {student?.name} ({p.studentRegisterNo})
+                            </div>
+                            <div className="text-xs text-muted-foreground">Department: {dept}</div>
+                            <div>Total: ₹ {p.total.toFixed(2)}</div>
+                            {p.rejectReason && <div className="mt-1 text-destructive">Reason: {p.rejectReason}</div>}
+                          </div>
+                          <div className="text-destructive">Rejected</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">Department: {dept}</div>
-                        <div>Total: ₹ {p.total.toFixed(2)}</div>
-                        {p.rejectReason && <div className="mt-1 text-destructive">Reason: {p.rejectReason}</div>}
+                        <div className="mt-2">
+                          <Button size="sm" variant="secondary" onClick={() => window.print()}>
+                            Download PDF
+                          </Button>
+                        </div>
                       </div>
-                      <div className="text-destructive">Rejected</div>
-                    </div>
-                    <div className="mt-2">
-                      <Button size="sm" variant="secondary" onClick={() => window.print()}>
-                        Download PDF
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })}
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 

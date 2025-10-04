@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useMemo, useState } from "react"
 import { currentUser } from "@/lib/local-db"
+import Button from "@/components/ui/button"
 
 type Comparator = "lt" | "eq" | "gt"
 type PaidFilter = "all" | "paid" | "unpaid"
@@ -57,6 +58,58 @@ export default function FacultyStudentsPage() {
       })
   }, [db, department, paidFilter, cmp, amount, regNo, scope])
 
+  const rowsMemo = rows
+
+  function downloadCsv() {
+    const rows = [
+      ["Name", "RegisterNo", "Department", "Phone", "Paid", "Outstanding"],
+      ...rowsMemo.map((r) => [
+        r.student.name,
+        r.student.registerNo,
+        r.student.department,
+        r.student.phone || "",
+        r.paid.toFixed(2),
+        r.outstanding.toFixed(2),
+      ]),
+    ]
+    const csv = rows.map((r) => r.join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = "faculty-students.csv"
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  function printList() {
+    const html = `
+      <html>
+        <head><title>Students</title></head>
+        <body>
+          <h2>Students</h2>
+          <table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%;font-family:sans-serif;">
+            <thead><tr>
+              <th>Name</th><th>Register No</th><th>Department</th><th>Phone</th><th>Paid</th><th>Outstanding</th>
+            </tr></thead>
+            <tbody>
+              ${rowsMemo
+                .map(
+                  (r) =>
+                    `<tr><td>${r.student.name}</td><td>${r.student.registerNo}</td><td>${r.student.department}</td><td>${r.student.phone || ""}</td><td style="text-align:right;">₹ ${r.paid.toFixed(2)}</td><td style="text-align:right;">₹ ${r.outstanding.toFixed(2)}</td></tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+          <script>window.print()</script>
+        </body>
+      </html>`
+    const w = window.open("", "_blank", "width=900,height=700")
+    if (w) {
+      w.document.write(html)
+      w.document.close()
+    }
+  }
+
   return (
     <main className="min-h-screen">
       <Navbar />
@@ -65,6 +118,14 @@ export default function FacultyStudentsPage() {
           <CardHeader>
             <CardTitle>Students (Faculty View)</CardTitle>
             <CardDescription>See personal, fees, and certificates with filters.</CardDescription>
+            <div className="mt-2 flex gap-2">
+              <Button variant="secondary" onClick={downloadCsv}>
+                Download CSV
+              </Button>
+              <Button variant="secondary" onClick={printList}>
+                Print
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid gap-2 md:grid-cols-5">
