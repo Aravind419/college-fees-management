@@ -171,8 +171,46 @@ export default function ApprovalsPage() {
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Approved Payments</CardTitle>
-            <CardDescription>All approved submissions.</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Approved Payments</CardTitle>
+                <CardDescription>All approved submissions.</CardDescription>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const filtered = approved.filter((p) => {
+                    const t = new Date(p.decidedAt || p.createdAt).getTime()
+                    const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
+                    const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
+                    return t >= f && t <= to
+                  })
+                  const rows = [
+                    ["Student", "RegisterNo", "Date", "Total", "UPI Txn"],
+                    ...filtered.map((p) => {
+                      const s = db.students.find((x) => x.registerNo === p.studentRegisterNo)
+                      return [
+                        s?.name || "",
+                        p.studentRegisterNo,
+                        new Date(p.decidedAt || p.createdAt).toLocaleString(),
+                        p.total.toFixed(2),
+                        p.upiTransactionId || "",
+                      ]
+                    }),
+                  ]
+                  const csv = rows.map((r) => r.join(",")).join("\n")
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+                  const a = document.createElement("a")
+                  a.href = URL.createObjectURL(blob)
+                  a.download = "approved-payments.csv"
+                  a.click()
+                  URL.revokeObjectURL(a.href)
+                }}
+              >
+                Download CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {approved.length === 0 && <p>No approved items.</p>}
@@ -213,8 +251,46 @@ export default function ApprovalsPage() {
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Rejected Payments</CardTitle>
-            <CardDescription>All rejected submissions with reasons.</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Rejected Payments</CardTitle>
+                <CardDescription>All rejected submissions with reasons.</CardDescription>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const filtered = rejected.filter((p) => {
+                    const t = new Date(p.decidedAt || p.createdAt).getTime()
+                    const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
+                    const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
+                    return t >= f && t <= to
+                  })
+                  const rows = [
+                    ["Student", "RegisterNo", "Date", "Total", "Reason"],
+                    ...filtered.map((p) => {
+                      const s = db.students.find((x) => x.registerNo === p.studentRegisterNo)
+                      return [
+                        s?.name || "",
+                        p.studentRegisterNo,
+                        new Date(p.decidedAt || p.createdAt).toLocaleString(),
+                        p.total.toFixed(2),
+                        p.rejectReason || "",
+                      ]
+                    }),
+                  ]
+                  const csv = rows.map((r) => r.join(",")).join("\n")
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+                  const a = document.createElement("a")
+                  a.href = URL.createObjectURL(blob)
+                  a.download = "rejected-payments.csv"
+                  a.click()
+                  URL.revokeObjectURL(a.href)
+                }}
+              >
+                Download CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {rejected.length === 0 && <p>No rejected items.</p>}

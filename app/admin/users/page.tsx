@@ -7,25 +7,38 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { useState, useMemo } from "react"
+import { useState } from "react"
 
 export default function UsersPage() {
   const db = useDb()
-  const deptOptions = useMemo(
-    () => Array.from(new Set(db.students.map((s) => s.department))).filter(Boolean),
-    [db.students],
-  )
-  const yearOptions = useMemo(() => Array.from(new Set(db.students.map((s) => s.year))).filter(Boolean), [db.students])
-  const batchOptions = useMemo(
-    () => Array.from(new Set(db.students.map((s) => s.batch))).filter(Boolean),
-    [db.students],
-  )
+  const DEPARTMENTS = [
+    "IT",
+    "CSE",
+    "ECE",
+    "EEE",
+    "AI&ML",
+    "CIVIL",
+    "MECHANICAL",
+    "AERONAUTICAL",
+    "MCA",
+    "MECHATRONICS",
+    "CSBS",
+    "AIDS",
+    "CHEMICAL ENGINEERING",
+  ]
+  const YEARS = ["1", "2", "3", "4"]
+  const BATCHES = ["2022-2026", "2023-2027", "2024-2028", "2025-2029", "2026-2030"]
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<"office" | "principal" | "hod" | "faculty">("office")
   const [facultyDept, setFacultyDept] = useState<string>("")
   const [facultyYear, setFacultyYear] = useState<string>("")
   const [facultyBatch, setFacultyBatch] = useState<string>("")
+
+  const deptOptions = DEPARTMENTS
+  const yearOptions = YEARS
+  const batchOptions = BATCHES
 
   return (
     <main className="min-h-screen">

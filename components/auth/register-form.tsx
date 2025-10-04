@@ -1,12 +1,30 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { patchDb, uid, hash, setCurrentUser } from "@/lib/local-db"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useDb } from "@/lib/local-db"
+
+const DEPARTMENTS = [
+  "IT",
+  "CSE",
+  "ECE",
+  "EEE",
+  "AI&ML",
+  "CIVIL",
+  "MECHANICAL",
+  "AERONAUTICAL",
+  "MCA",
+  "MECHATRONICS",
+  "CSBS",
+  "AIDS",
+  "CHEMICAL ENGINEERING",
+]
+const YEARS = ["1", "2", "3", "4"]
+const BATCHES = ["2022-2026", "2023-2027", "2024-2028", "2025-2029", "2026-2030"]
 
 export default function RegisterForm() {
   const [name, setName] = useState("")
@@ -19,18 +37,9 @@ export default function RegisterForm() {
   const [password, setPassword] = useState("")
 
   const db = useDb()
-  const deptOptions = useMemo(() => {
-    const set = Array.from(new Set(db.students.map((s) => s.department))).filter(Boolean)
-    return set.length ? set : ["CSE", "IT", "ECE", "EEE", "MECH", "CIVIL", "AIML"]
-  }, [db.students])
-  const yearOptions = useMemo(() => {
-    const set = Array.from(new Set(db.students.map((s) => s.year))).filter(Boolean)
-    return set.length ? set : ["1", "2", "3", "4"]
-  }, [db.students])
-  const batchOptions = useMemo(() => {
-    const set = Array.from(new Set(db.students.map((s) => s.batch))).filter(Boolean)
-    return set.length ? set : ["2021-2025", "2022-2026", "2023-2027", "2024-2028"]
-  }, [db.students])
+  const deptOptions = DEPARTMENTS
+  const yearOptions = YEARS
+  const batchOptions = BATCHES
 
   return (
     <div className="grid gap-4">

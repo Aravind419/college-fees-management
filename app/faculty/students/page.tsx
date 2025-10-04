@@ -7,13 +7,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { useMemo, useState } from "react"
+import { currentUser } from "@/lib/local-db"
 
 type Comparator = "lt" | "eq" | "gt"
 type PaidFilter = "all" | "paid" | "unpaid"
 
 export default function FacultyStudentsPage() {
   const db = useDb()
-  const [department, setDepartment] = useState("all")
+  const me = currentUser()
+  const scope = me?.role === "faculty" ? me.facultyScope : undefined
+  const [department, setDepartment] = useState(scope?.department ?? "all")
   const [paidFilter, setPaidFilter] = useState<PaidFilter>("all")
   const [cmp, setCmp] = useState<Comparator>("eq")
   const [amount, setAmount] = useState<string>("")
@@ -26,7 +29,12 @@ export default function FacultyStudentsPage() {
 
   const rows = useMemo(() => {
     return db.students
-      .filter((s) => (department !== "all" ? s.department === department : true))
+      .filter((s) => {
+        if (scope?.department && s.department !== scope.department) return false
+        if (scope?.year && s.year !== scope.year) return false
+        if (scope?.batch && s.batch !== scope.batch) return false
+        return department !== "all" ? s.department === department : true
+      })
       .filter((s) => (regNo ? s.registerNo.includes(regNo) : true))
       .map((s) => {
         const outstanding = totalOutstanding(db, s.registerNo)
@@ -47,7 +55,7 @@ export default function FacultyStudentsPage() {
         if (cmp === "gt") return r.outstanding > val
         return r.outstanding === val
       })
-  }, [db, department, paidFilter, cmp, amount, regNo])
+  }, [db, department, paidFilter, cmp, amount, regNo, scope])
 
   return (
     <main className="min-h-screen">
@@ -61,7 +69,7 @@ export default function FacultyStudentsPage() {
           <CardContent className="grid gap-4">
             <div className="grid gap-2 md:grid-cols-5">
               <div>
-                <Select value={department} onValueChange={setDepartment}>
+                <Select value={department} onValueChange={setDepartment} disabled={Boolean(scope?.department)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All departments" />
                   </SelectTrigger>

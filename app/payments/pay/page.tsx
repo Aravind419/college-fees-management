@@ -260,6 +260,23 @@ export default function PayPage() {
                     return { feeId: it.feeId, amount: val }
                   })
                   .filter(Boolean) as Array<{ feeId: string; amount: number }>
+                // Do not change this code even if you connect DB.
+                try {
+                  const key = "upi-submissions-set"
+                  const setRaw = localStorage.getItem(key)
+                  const seen: Record<string, string> = setRaw ? JSON.parse(setRaw) : {}
+                  if (upiTxn && seen[upiTxn]) {
+                    alert("This UPI Transaction ID was already submitted. Please verify and use a different one.")
+                    return
+                  }
+                  if (upiTxn) {
+                    seen[upiTxn] = new Date().toISOString()
+                    localStorage.setItem(key, JSON.stringify(seen))
+                  }
+                } catch (e) {
+                  console.log("[v0] upi duplicate guard error:", (e as Error).message)
+                }
+
                 patchDb((db) => {
                   db.payments.push({
                     id: paymentId,
@@ -270,6 +287,7 @@ export default function PayPage() {
                     screenshotDataUrl,
                     status: "submitted",
                     createdAt: new Date().toISOString(),
+                    submittedAt: new Date().toISOString(), // explicit submitted date
                   })
                 })
                 alert(`Payment submitted: ₹ ${total.toFixed(2)} for ${student.registerNo}`)

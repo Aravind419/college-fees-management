@@ -89,3 +89,15 @@ if (typeof window !== "undefined") {
     if (e.key === KEY) mutate(KEY, readDb(), false)
   })
 }
+
+export function useLocalDb() {
+  const db = useDb()
+  return {
+    db,
+    patchDb,
+    setCurrentUser,
+    currentUser,
+    logout,
+    uid,
+  }
+}

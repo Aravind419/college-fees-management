@@ -85,6 +85,7 @@ export interface PaymentSubmission {
   screenshotDataUrl?: string
   status: PaymentStatus
   createdAt: string
+  submittedAt?: string
   decidedAt?: string
   decidedBy?: string
   // Mandatory reason stored when rejected
