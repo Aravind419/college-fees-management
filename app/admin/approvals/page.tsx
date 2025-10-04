@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { useState } from "react"
+import { totalOutstanding } from "@/lib/fees"
 
 export default function ApprovalsPage() {
   const db = useDb()
@@ -17,6 +18,8 @@ export default function ApprovalsPage() {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [reason, setReason] = useState("")
   const [targetId, setTargetId] = useState<string | undefined>(undefined)
+  const [fromDate, setFromDate] = useState<string>("")
+  const [toDate, setToDate] = useState<string>("")
 
   function openReject(id: string) {
     setTargetId(id)
@@ -34,58 +37,135 @@ export default function ApprovalsPage() {
             <CardDescription>Review submitted payments and approve or reject.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
+            {/* Date filter UI */}
+            <div className="grid gap-2 md:grid-cols-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">From</span>
+                <input
+                  type="date"
+                  className="rounded border p-1 text-sm"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+                <span className="text-sm">To</span>
+                <input
+                  type="date"
+                  className="rounded border p-1 text-sm"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
+              </div>
+            </div>
+            {/* Grid layout instead of list for submitted */}
             {submitted.length === 0 && <p>No pending submissions.</p>}
-            {submitted.map((p) => {
-              const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
-              return (
-                <div key={p.id} className="rounded border p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">
-                        {student?.name} ({p.studentRegisterNo})
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {submitted
+                .filter((p) => {
+                  const t = new Date(p.createdAt).getTime()
+                  const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
+                  const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
+                  return t >= f && t <= to
+                })
+                .map((p) => {
+                  const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
+                  const dept = student?.department || "-"
+                  const unpaid = student ? totalOutstanding(db, student.registerNo) : 0
+                  return (
+                    <div key={p.id} className="rounded border p-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium">
+                            {student?.name} ({p.studentRegisterNo})
+                          </div>
+                          {/* Show department, unpaid and date */}
+                          <div className="text-xs text-muted-foreground">Department: {dept}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Submitted: {new Date(p.createdAt).toLocaleString()}
+                          </div>
+                          <div className="text-sm">Total: ₹ {p.total.toFixed(2)}</div>
+                          <div className="text-xs">Remaining (Unpaid): ₹ {unpaid.toFixed(2)}</div>
+                          {p.upiTransactionId && <div className="text-xs">UPI Txn: {p.upiTransactionId}</div>}
+                        </div>
+                        {/* Per-payment PDF */}
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            const w = window.open("", "_blank", "width=720,height=900")
+                            if (!w) return
+                            const linesHtml = p.allocations
+                              .map((line) => {
+                                const fee = db.fees.find((f) => f.id === line.feeId)
+                                return `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${fee?.name || line.feeId}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">₹ ${line.amount.toFixed(2)}</td></tr>`
+                              })
+                              .join("")
+                            w.document.write(`
+                              <html>
+                                <head><title>Payment ${p.id}</title></head>
+                                <body style="font-family:sans-serif;">
+                                  <h2>Payment Submission</h2>
+                                  <p><strong>Student:</strong> ${student?.name} (${p.studentRegisterNo})</p>
+                                  <p><strong>Department:</strong> ${dept}</p>
+                                  <p><strong>Date:</strong> ${new Date(p.createdAt).toLocaleString()}</p>
+                                  <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+                                    <thead>
+                                      <tr><th style="text-align:left;border:1px solid #ddd;padding:4px 8px;">Fee</th><th style="text-align:right;border:1px solid #ddd;padding:4px 8px;">Amount</th></tr>
+                                    </thead>
+                                    <tbody>${linesHtml}</tbody>
+                                    <tfoot>
+                                      <tr><td style="padding:6px 8px;border:1px solid #ddd;"><strong>Total</strong></td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right;"><strong>₹ ${p.total.toFixed(2)}</strong></td></tr>
+                                    </tfoot>
+                                  </table>
+                                  <p><strong>Remaining (Unpaid):</strong> ₹ ${unpaid.toFixed(2)}</p>
+                                  <script>window.print();</script>
+                                </body>
+                              </html>
+                            `)
+                            w.document.close()
+                          }}
+                        >
+                          PDF
+                        </Button>
                       </div>
-                      <div className="text-sm text-muted-foreground">Total: ₹ {p.total.toFixed(2)}</div>
-                      {p.upiTransactionId && <div className="text-sm">UPI Txn: {p.upiTransactionId}</div>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        className="bg-primary text-primary-foreground"
-                        onClick={() => {
-                          patchDb((db) => {
-                            const x = db.payments.find((x) => x.id === p.id)!
-                            x.status = "approved"
-                            x.decidedAt = new Date().toISOString()
-                            x.decidedBy = "admin"
-
-                            const receiptId = uid("rcpt")
-                            db.receipts.push({
-                              id: receiptId,
-                              paymentId: p.id,
-                              number: `PMC-${new Date().getFullYear()}-${String(db.receipts.length + 1).padStart(5, "0")}`,
-                              issuedAt: new Date().toISOString(),
+                      {p.screenshotDataUrl && (
+                        <div className="mt-2">
+                          <img
+                            src={p.screenshotDataUrl || "/placeholder.svg"}
+                            alt="Payment screenshot"
+                            className="max-h-64 rounded border object-contain"
+                          />
+                        </div>
+                      )}
+                      <div className="mt-2 flex items-center gap-2">
+                        <Button
+                          className="bg-primary text-primary-foreground"
+                          onClick={() => {
+                            patchDb((db) => {
+                              const x = db.payments.find((x) => x.id === p.id)!
+                              x.status = "approved"
+                              x.decidedAt = new Date().toISOString()
+                              x.decidedBy = "admin"
+                              const receiptId = uid("rcpt")
+                              db.receipts.push({
+                                id: receiptId,
+                                paymentId: p.id,
+                                number: `PMC-${new Date().getFullYear()}-${String(db.receipts.length + 1).padStart(5, "0")}`,
+                                issuedAt: new Date().toISOString(),
+                              })
                             })
-                          })
-                        }}
-                      >
-                        Approve & Issue Receipt
-                      </Button>
-                      <Button variant="secondary" onClick={() => openReject(p.id)}>
-                        Reject
-                      </Button>
+                            alert(`Approved ₹ ${p.total.toFixed(2)} for ${p.studentRegisterNo}`)
+                          }}
+                        >
+                          Approve & Issue Receipt
+                        </Button>
+                        <Button variant="secondary" onClick={() => openReject(p.id)}>
+                          Reject
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                  {p.screenshotDataUrl && (
-                    <div className="mt-2">
-                      <img
-                        src={p.screenshotDataUrl || "/placeholder.svg"}
-                        alt="Payment screenshot"
-                        className="max-h-64 rounded border object-contain"
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                  )
+                })}
+            </div>
           </CardContent>
         </Card>
 
@@ -94,24 +174,40 @@ export default function ApprovalsPage() {
             <CardTitle>Approved Payments</CardTitle>
             <CardDescription>All approved submissions.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2">
+          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {approved.length === 0 && <p>No approved items.</p>}
-            {approved.map((p) => {
-              const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
-              return (
-                <div key={p.id} className="rounded border p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">
-                        {student?.name} ({p.studentRegisterNo})
+            {approved
+              .filter((p) => {
+                const t = new Date(p.decidedAt || p.createdAt).getTime()
+                const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
+                const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
+                return t >= f && t <= to
+              })
+              .map((p) => {
+                const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
+                const dept = student?.department || "-"
+                const unpaid = student ? totalOutstanding(db, student.registerNo) : 0
+                return (
+                  <div key={p.id} className="rounded border p-3 text-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-medium">
+                          {student?.name} ({p.studentRegisterNo})
+                        </div>
+                        <div className="text-xs text-muted-foreground">Department: {dept}</div>
+                        <div>Total: ₹ {p.total.toFixed(2)}</div>
+                        <div className="text-xs">Remaining (Unpaid): ₹ {unpaid.toFixed(2)}</div>
                       </div>
-                      <div>Total: ₹ {p.total.toFixed(2)}</div>
+                      <div className="text-green-600">Approved</div>
                     </div>
-                    <div className="text-green-600">Approved</div>
+                    <div className="mt-2">
+                      <Button size="sm" variant="secondary" onClick={() => window.print()}>
+                        Download PDF
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
           </CardContent>
         </Card>
 
@@ -120,25 +216,39 @@ export default function ApprovalsPage() {
             <CardTitle>Rejected Payments</CardTitle>
             <CardDescription>All rejected submissions with reasons.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2">
+          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {rejected.length === 0 && <p>No rejected items.</p>}
-            {rejected.map((p) => {
-              const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
-              return (
-                <div key={p.id} className="rounded border p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">
-                        {student?.name} ({p.studentRegisterNo})
+            {rejected
+              .filter((p) => {
+                const t = new Date(p.decidedAt || p.createdAt).getTime()
+                const f = fromDate ? new Date(fromDate).getTime() : Number.NEGATIVE_INFINITY
+                const to = toDate ? new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1 : Number.POSITIVE_INFINITY
+                return t >= f && t <= to
+              })
+              .map((p) => {
+                const student = db.students.find((s) => s.registerNo === p.studentRegisterNo)
+                const dept = student?.department || "-"
+                return (
+                  <div key={p.id} className="rounded border p-3 text-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-medium">
+                          {student?.name} ({p.studentRegisterNo})
+                        </div>
+                        <div className="text-xs text-muted-foreground">Department: {dept}</div>
+                        <div>Total: ₹ {p.total.toFixed(2)}</div>
+                        {p.rejectReason && <div className="mt-1 text-destructive">Reason: {p.rejectReason}</div>}
                       </div>
-                      <div>Total: ₹ {p.total.toFixed(2)}</div>
+                      <div className="text-destructive">Rejected</div>
                     </div>
-                    <div className="text-destructive">Rejected</div>
+                    <div className="mt-2">
+                      <Button size="sm" variant="secondary" onClick={() => window.print()}>
+                        Download PDF
+                      </Button>
+                    </div>
                   </div>
-                  {p.rejectReason && <div className="mt-1 text-destructive">Reason: {p.rejectReason}</div>}
-                </div>
-              )
-            })}
+                )
+              })}
           </CardContent>
         </Card>
 
@@ -173,6 +283,7 @@ export default function ApprovalsPage() {
                   setRejectOpen(false)
                   setTargetId(undefined)
                   setReason("")
+                  alert("Payment rejected with reason recorded.")
                 }}
               >
                 Confirm Reject

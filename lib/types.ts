@@ -7,9 +7,13 @@ export interface User {
   role: Role
   studentRegNo?: string
   createdAt: string
+  facultyScope?: {
+    department: string
+    year?: string
+    batch?: string
+  }
 }
 
-// Allow arbitrary fee keys, including admin-defined custom types
 export type FeeType = string
 
 export interface FeeDefinition {
@@ -107,4 +111,5 @@ export interface Db {
   registrationWindow?: { from?: string; to?: string }
   frozenDepartments?: string[]
   frozenStudents?: string[]
+  upiConfig?: { upiId: string; qrDataUrl?: string }
 }

@@ -18,11 +18,15 @@ export default function LoginForm() {
     <div className="grid gap-4">
       <div className="grid gap-2">
         <Label>{role === "student" ? "Register No / Phone" : "Email"}</Label>
-        <Input
-          type={role === "student" ? "text" : "email"}
-          value={emailOrId}
-          onChange={(e) => setEmailOrId(e.target.value)}
-        />
+        <div className="flex gap-2">
+          <Input
+            type={role === "student" ? "text" : "email"}
+            value={emailOrId}
+            onChange={(e) => setEmailOrId(e.target.value)}
+            placeholder={role === "student" ? "Enter register no or phone" : "Enter email"}
+          />
+          {/* Removed register number dropdown for students */}
+        </div>
       </div>
       <div className="grid gap-2">
         <Label>Password</Label>

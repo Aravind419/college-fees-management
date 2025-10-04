@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { patchDb, uid, hash, setCurrentUser } from "@/lib/local-db"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useDb } from "@/lib/local-db"
 
 export default function RegisterForm() {
   const [name, setName] = useState("")
@@ -15,6 +17,20 @@ export default function RegisterForm() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
+
+  const db = useDb()
+  const deptOptions = useMemo(() => {
+    const set = Array.from(new Set(db.students.map((s) => s.department))).filter(Boolean)
+    return set.length ? set : ["CSE", "IT", "ECE", "EEE", "MECH", "CIVIL", "AIML"]
+  }, [db.students])
+  const yearOptions = useMemo(() => {
+    const set = Array.from(new Set(db.students.map((s) => s.year))).filter(Boolean)
+    return set.length ? set : ["1", "2", "3", "4"]
+  }, [db.students])
+  const batchOptions = useMemo(() => {
+    const set = Array.from(new Set(db.students.map((s) => s.batch))).filter(Boolean)
+    return set.length ? set : ["2021-2025", "2022-2026", "2023-2027", "2024-2028"]
+  }, [db.students])
 
   return (
     <div className="grid gap-4">
@@ -28,15 +44,48 @@ export default function RegisterForm() {
       </div>
       <div className="grid gap-2">
         <Label>Department</Label>
-        <Input value={department} onChange={(e) => setDepartment(e.target.value)} />
+        <Select value={department} onValueChange={setDepartment}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select department" />
+          </SelectTrigger>
+          <SelectContent>
+            {deptOptions.map((d) => (
+              <SelectItem key={d} value={d}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid gap-2">
         <Label>Year</Label>
-        <Input value={year} onChange={(e) => setYear(e.target.value)} />
+        <Select value={year} onValueChange={setYear}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select year" />
+          </SelectTrigger>
+          <SelectContent>
+            {yearOptions.map((y) => (
+              <SelectItem key={y} value={y}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid gap-2">
         <Label>Batch</Label>
-        <Input value={batch} onChange={(e) => setBatch(e.target.value)} />
+        <Select value={batch} onValueChange={setBatch}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select batch" />
+          </SelectTrigger>
+          <SelectContent>
+            {batchOptions.map((b) => (
+              <SelectItem key={b} value={b}>
+                {b}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid gap-2">
         <Label>Email</Label>

@@ -24,7 +24,7 @@ export default function Navbar() {
           {user ? (
             <>
               <span className="text-sm">
-                Signed in as: {displayName} ({user.role})
+                Welcome, {student?.name ?? displayName} ({user.role})
               </span>
               <Link href="/dashboard">
                 <Button variant="default" size="sm">

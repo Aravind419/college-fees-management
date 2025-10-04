@@ -7,13 +7,25 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 
 export default function UsersPage() {
   const db = useDb()
+  const deptOptions = useMemo(
+    () => Array.from(new Set(db.students.map((s) => s.department))).filter(Boolean),
+    [db.students],
+  )
+  const yearOptions = useMemo(() => Array.from(new Set(db.students.map((s) => s.year))).filter(Boolean), [db.students])
+  const batchOptions = useMemo(
+    () => Array.from(new Set(db.students.map((s) => s.batch))).filter(Boolean),
+    [db.students],
+  )
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [role, setRole] = useState<"office" | "principal" | "hod" | "faculty">("office")
+  const [facultyDept, setFacultyDept] = useState<string>("")
+  const [facultyYear, setFacultyYear] = useState<string>("")
+  const [facultyBatch, setFacultyBatch] = useState<string>("")
 
   return (
     <main className="min-h-screen">
@@ -47,9 +59,62 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
+            {role === "faculty" && (
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-1">
+                  <Label>Department</Label>
+                  <Select value={facultyDept} onValueChange={setFacultyDept}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deptOptions.map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1">
+                  <Label>Year</Label>
+                  <Select value={facultyYear} onValueChange={setFacultyYear}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {yearOptions.map((y) => (
+                        <SelectItem key={y} value={y}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1">
+                  <Label>Batch</Label>
+                  <Select value={facultyBatch} onValueChange={setFacultyBatch}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select batch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {batchOptions.map((b) => (
+                        <SelectItem key={b} value={b}>
+                          {b}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
             <Button
               onClick={() => {
                 if (!email || !password) return
+                if (role === "faculty" && !facultyDept) {
+                  alert("Please select faculty department.")
+                  return
+                }
                 patchDb((db) => {
                   db.users.push({
                     id: uid("usr"),
@@ -57,10 +122,22 @@ export default function UsersPage() {
                     passwordHash: hash(password),
                     role,
                     createdAt: new Date().toISOString(),
+                    ...(role === "faculty"
+                      ? {
+                          facultyScope: {
+                            department: facultyDept,
+                            year: facultyYear || undefined,
+                            batch: facultyBatch || undefined,
+                          },
+                        }
+                      : {}),
                   })
                 })
                 setEmail("")
                 setPassword("")
+                setFacultyDept("")
+                setFacultyYear("")
+                setFacultyBatch("")
                 alert("User created.")
               }}
             >

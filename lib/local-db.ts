@@ -23,6 +23,7 @@ function emptyDb(): Db {
     registrationWindow: undefined,
     frozenDepartments: [],
     frozenStudents: [],
+    upiConfig: { upiId: "aravindaravind@ptaxis", qrDataUrl: undefined },
   }
 }
 

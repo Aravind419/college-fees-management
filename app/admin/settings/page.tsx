@@ -9,10 +9,23 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
+function fileToDataUrl(file?: File): Promise<string | undefined> {
+  if (!file) return Promise.resolve(undefined)
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function SettingsPage() {
   const db = useDb()
   const [dept, setDept] = useState("")
   const [reg, setReg] = useState("")
+  const [upiId, setUpiId] = useState(db.upiConfig?.upiId || "aravindaravind@ptaxis")
+  const [qrFile, setQrFile] = useState<File | undefined>(undefined)
+  const [qrPreview, setQrPreview] = useState<string | undefined>(db.upiConfig?.qrDataUrl)
 
   return (
     <main className="min-h-screen">
@@ -113,6 +126,61 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>UPI / Payment Settings</CardTitle>
+            <CardDescription>Configure UPI ID and QR for student payments.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid gap-1">
+              <Label>UPI ID</Label>
+              <Input value={upiId} onChange={(e) => setUpiId(e.target.value)} placeholder="example@upi" />
+            </div>
+            <div className="grid gap-1">
+              <Label>Upload QR Image (optional)</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  setQrFile(f)
+                  if (f) {
+                    const reader = new FileReader()
+                    reader.onload = () => setQrPreview(reader.result as string)
+                    reader.readAsDataURL(f)
+                  } else {
+                    setQrPreview(undefined)
+                  }
+                }}
+              />
+              {qrPreview ? (
+                <img
+                  src={qrPreview || "/placeholder.svg"}
+                  alt="QR preview"
+                  className="h-40 w-40 rounded border object-contain"
+                />
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  No QR uploaded. Students will see a generated placeholder.
+                </div>
+              )}
+            </div>
+            <div>
+              <Button
+                onClick={async () => {
+                  const dataUrl = await fileToDataUrl(qrFile)
+                  patchDb((db) => {
+                    db.upiConfig = { upiId: upiId.trim(), qrDataUrl: dataUrl || db.upiConfig?.qrDataUrl }
+                  })
+                  alert("UPI settings saved.")
+                }}
+              >
+                Save UPI Settings
+              </Button>
             </div>
           </CardContent>
         </Card>

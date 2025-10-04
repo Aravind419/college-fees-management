@@ -12,6 +12,7 @@ import { outstandingByFee } from "@/lib/fees"
 import { sumAllocatedByFee, sumPaidByFee } from "@/lib/fees"
 import { Checkbox } from "@/components/ui/checkbox"
 import QR from "@/components/payments/qr"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 function fileToDataUrl(file?: File): Promise<string | undefined> {
   if (!file) return Promise.resolve(undefined)
@@ -52,6 +53,9 @@ export default function PayPage() {
 
   const [upiTxn, setUpiTxn] = useState("")
   const [file, setFile] = useState<File | undefined>()
+  const [filterStatus, setFilterStatus] = useState<"all" | "submitted" | "approved" | "rejected">("all")
+  const [fromDate, setFromDate] = useState<string>("")
+  const [toDate, setToDate] = useState<string>("")
 
   const totals = useMemo(() => {
     if (!student) return { totalFees: 0, alreadyPaid: 0 }
@@ -64,11 +68,53 @@ export default function PayPage() {
 
   const remainingAfter = Math.max(0, totals.totalFees - (totals.alreadyPaid + total))
 
-  const upiId = "aravindaravind@ptaxis"
+  const upiId = db.upiConfig?.upiId || "aravindaravind@ptaxis"
   const tn = student?.registerNo ? `Fees ${student.registerNo}` : "Fees"
   const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     "PMC TECH",
   )}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(tn)}`
+  const qrImage = db.upiConfig?.qrDataUrl || undefined
+
+  const mySubmissions = db.payments
+    .filter((p) => p.studentRegisterNo === student?.registerNo)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+
+  function isWithin(dateIso: string) {
+    const d = new Date(dateIso)
+    if (fromDate && d < new Date(fromDate)) return false
+    if (toDate && d > new Date(toDate + "T23:59:59")) return false
+    return true
+  }
+
+  const filteredSubs = mySubmissions
+    .filter((p) => (filterStatus === "all" ? true : p.status === filterStatus))
+    .filter((p) => isWithin(p.createdAt))
+
+  function downloadFilteredCSV() {
+    const rows = [
+      ["ID", "Date", "Status", "UPI Transaction", "Total", "Lines"],
+      ...filteredSubs.map((p) => [
+        p.id,
+        new Date(p.createdAt).toLocaleString(),
+        p.status,
+        p.upiTransactionId || "",
+        p.total.toFixed(2),
+        p.allocations
+          .map((l) => {
+            const fee = db.fees.find((f) => f.id === l.feeId)
+            return `${fee?.name || l.feeId}:${l.amount.toFixed(2)}`
+          })
+          .join(" | "),
+      ]),
+    ]
+    const csv = rows.map((r) => r.join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = "my-payments.csv"
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
   if (!student) {
     return (
@@ -169,16 +215,20 @@ export default function PayPage() {
               Use this UPI ID to pay: <span className="font-medium">{upiId}</span>
             </div>
 
-            <a className="mt-1 inline-block" href={upiLink}>
-              <Button className="w-full">Open UPI App</Button>
+            <a className="mt-1 inline-block" href={total > 0 ? upiLink : undefined} aria-disabled={total <= 0}>
+              <Button className="w-full" disabled={total <= 0}>
+                Open UPI App
+              </Button>
             </a>
 
-            <div className="mt-2 flex flex-col items-center">
-              <QR text={upiLink} />
-              <p className="mt-2 text-xs text-muted-foreground">
-                Scan this QR or tap "Open UPI App" to pay. Then submit proof for approval.
-              </p>
-            </div>
+            {total > 0 && (
+              <div className="mt-2 flex flex-col items-center">
+                <QR text={upiLink} imageSrc={qrImage} />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Scan this QR or tap "Open UPI App" to pay. Then submit proof for approval.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -222,7 +272,7 @@ export default function PayPage() {
                     createdAt: new Date().toISOString(),
                   })
                 })
-                alert("Payment submitted for approval.")
+                alert(`Payment submitted: ₹ ${total.toFixed(2)} for ${student.registerNo}`)
               }}
             >
               Submit for Approval
@@ -236,16 +286,48 @@ export default function PayPage() {
             <CardDescription>Track approval status and reasons.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2">
-            {db.payments
-              .filter((p) => p.studentRegisterNo === student.registerNo)
-              .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-              .map((p) => (
-                <div key={p.id} className="rounded border p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div>Submitted: {new Date(p.createdAt).toLocaleString()}</div>
-                      <div>Total: ₹ {p.total.toFixed(2)}</div>
-                    </div>
+            {/* Filters and bulk export */}
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="grid gap-1">
+                <Label>Status</Label>
+                <Select
+                  // @ts-ignore
+                  onValueChange={(v) => setFilterStatus(v as any)}
+                  value={filterStatus}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1">
+                <Label>From</Label>
+                <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              </div>
+              <div className="grid gap-1">
+                <Label>To</Label>
+                <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              </div>
+              <Button variant="secondary" onClick={downloadFilteredCSV}>
+                Download All (CSV)
+              </Button>
+            </div>
+
+            {/* existing submissions list follows */}
+            {filteredSubs.map((p) => (
+              <div key={p.id} className="rounded border p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div>Submitted: {new Date(p.createdAt).toLocaleString()}</div>
+                    <div>Total: ₹ {p.total.toFixed(2)}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <div className="font-medium">
                       Status:{" "}
                       <span
@@ -260,12 +342,52 @@ export default function PayPage() {
                         {p.status.toUpperCase()}
                       </span>
                     </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const w = window.open("", "_blank", "width=720,height=900")
+                        if (!w) return
+                        const linesHtml = p.allocations
+                          .map((line) => {
+                            const fee = db.fees.find((f) => f.id === line.feeId)
+                            return `<tr><td style="padding:4px 8px;border:1px solid #ddd;">${fee?.name || line.feeId}</td><td style="padding:4px 8px;border:1px solid #ddd;text-align:right;">₹ ${line.amount.toFixed(2)}</td></tr>`
+                          })
+                          .join("")
+                        w.document.write(`
+                          <html>
+                            <head><title>Payment Submission ${p.id}</title></head>
+                            <body style="font-family:sans-serif;">
+                              <h2>Payment Submission</h2>
+                              <p><strong>Student:</strong> ${student.name} (${student.registerNo})</p>
+                              <p><strong>Date:</strong> ${new Date(p.createdAt).toLocaleString()}</p>
+                              <p><strong>Status:</strong> ${p.status.toUpperCase()}${
+                                p.status === "rejected" && p.rejectReason ? ` • Reason: ${p.rejectReason}` : ""
+                              }${p.upiTransactionId ? ` • UPI TXN: ${p.upiTransactionId}` : ""}</p>
+                              <table style="border-collapse:collapse;width:100%;margin-top:12px;">
+                                <thead>
+                                  <tr><th style="text-align:left;border:1px solid #ddd;padding:4px 8px;">Fee</th><th style="text-align:right;border:1px solid #ddd;padding:4px 8px;">Amount</th></tr>
+                                </thead>
+                                <tbody>${linesHtml}</tbody>
+                                <tfoot>
+                                  <tr><td style="padding:6px 8px;border:1px solid #ddd;"><strong>Total</strong></td><td style="padding:6px 8px;border:1px solid #ddd;text-align:right;"><strong>₹ ${p.total.toFixed(2)}</strong></td></tr>
+                                </tfoot>
+                              </table>
+                              <script>window.print();</script>
+                            </body>
+                          </html>
+                        `)
+                        w.document.close()
+                      }}
+                    >
+                      Download PDF
+                    </Button>
                   </div>
-                  {p.status === "rejected" && p.rejectReason && (
-                    <div className="mt-1 text-destructive">Reason: {p.rejectReason}</div>
-                  )}
                 </div>
-              ))}
+                {p.status === "rejected" && p.rejectReason && (
+                  <div className="mt-1 text-destructive">Reason: {p.rejectReason}</div>
+                )}
+              </div>
+            ))}
           </CardContent>
         </Card>
       </section>

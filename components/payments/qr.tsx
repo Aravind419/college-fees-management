@@ -1,36 +1,52 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
+import QRCode from "qrcode"
 
-// Lightweight QR drawing (small) to avoid extra deps in preview; not production-robust
-// Renders a simple text fallback if canvas cannot be drawn
-export default function QR({ text }: { text: string }) {
+export default function QR({ text, imageSrc }: { text: string; imageSrc?: string }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const [imgFailed, setImgFailed] = useState(false)
 
   useEffect(() => {
+    if (imageSrc && !imgFailed) return
     const canvas = ref.current
     if (!canvas) return
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    // Simple placeholder: not actual QR algorithm (to avoid heavy deps here).
-    // In production, use `qrcode` package. For demo, we draw text and a border.
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = "#fff"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.strokeStyle = "#000"
-    ctx.lineWidth = 4
-    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4)
-    ctx.fillStyle = "#000"
-    ctx.font = "12px sans-serif"
-    const wrapped = text.slice(0, 120)
-    const lines = wrapped.match(/.{1,24}/g) ?? [wrapped]
-    lines.forEach((line, idx) => ctx.fillText(line, 8, 20 + idx * 14))
-  }, [text])
+    QRCode.toCanvas(canvas, text, {
+      width: 220,
+      margin: 1,
+      errorCorrectionLevel: "M",
+      color: { dark: "#000000", light: "#ffffff" },
+    }).catch((err) => {
+      console.log("[v0] QR draw error:", err)
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = "#fff"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.fillStyle = "#000"
+      ctx.font = "12px sans-serif"
+      ctx.fillText("QR unavailable", 50, 110)
+    })
+  }, [text, imageSrc, imgFailed])
+
+  if (imageSrc && !imgFailed) {
+    return (
+      <div className="flex flex-col items-center">
+        <img
+          src={imageSrc || "/placeholder.svg"}
+          alt="UPI QR"
+          className="h-56 w-56 rounded border object-contain"
+          onError={() => setImgFailed(true)}
+        />
+        <p className="mt-2 text-xs text-muted-foreground">Scan this QR to pay</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col items-center">
-      <canvas ref={ref} width={200} height={200} className="rounded border" />
-      <p className="mt-2 text-xs text-muted-foreground">Demo QR placeholder (use real QR lib in production)</p>
+      <canvas ref={ref} width={220} height={220} className="rounded border bg-white" />
+      <p className="mt-2 text-xs text-muted-foreground">Scan this QR to pay</p>
     </div>
   )
 }

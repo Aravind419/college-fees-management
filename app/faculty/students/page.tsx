@@ -41,8 +41,8 @@ export default function FacultyStudentsPage() {
         return true
       })
       .filter((r) => {
-        const val = Number(amount || "")
-        if (!val && val !== 0) return true
+        const val = Number.parseFloat(amount)
+        if (Number.isNaN(val)) return true
         if (cmp === "lt") return r.outstanding < val
         if (cmp === "gt") return r.outstanding > val
         return r.outstanding === val

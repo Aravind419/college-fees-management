@@ -119,6 +119,8 @@ export default function AllocateFeesPage() {
               <Button
                 onClick={() => {
                   if (selectedRegs.length === 0) return
+                  const newRows: Array<{ reg: string; fee: string; amount: number }> = []
+                  let totalAmt = 0
                   patchDb((db) => {
                     for (const reg of selectedRegs) {
                       if (allFees) {
@@ -129,6 +131,8 @@ export default function AllocateFeesPage() {
                             feeId: f.id,
                             amount: f.defaultAmount,
                           })
+                          newRows.push({ reg, fee: f.name, amount: f.defaultAmount })
+                          totalAmt += f.defaultAmount
                         }
                       } else {
                         if (!feeId) continue
@@ -140,10 +144,24 @@ export default function AllocateFeesPage() {
                           feeId: feeId,
                           amount: amt,
                         })
+                        newRows.push({ reg, fee: f.name, amount: amt })
+                        totalAmt += amt
                       }
                     }
                   })
-                  alert("Allocations saved.")
+                  alert(`Fees allocated to ${selectedRegs.length} student(s). Total amount: ₹ ${totalAmt.toFixed(2)}`)
+                  const csv = ["Register No,Fee,Amount", ...newRows.map((r) => `${r.reg},${r.fee},${r.amount}`)].join(
+                    "\n",
+                  )
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement("a")
+                  a.href = url
+                  a.download = `allocations-${new Date().toISOString().slice(0, 10)}.csv`
+                  document.body.appendChild(a)
+                  a.click()
+                  a.remove()
+                  URL.revokeObjectURL(url)
                 }}
               >
                 Add Allocation(s)
